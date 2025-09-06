@@ -1,125 +1,142 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Layout, Card, Typography, Button, Tag, List, Divider } from 'antd';
-import { 
-  LeftOutlined, 
-  EnvironmentOutlined, 
-  DollarOutlined,
-  BankOutlined
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Layout, Card, Typography, Button, Tag, Divider } from 'antd';
+import {
+    LeftOutlined,
+    DollarOutlined
 } from '@ant-design/icons';
 import Navbar from '../components/Navbar';
+import { getJobDetail } from '../services/api';
+import { JobDto } from '../data/models/JobDto';
+import ErrorMessage from '../components/ErrorMessage';
+import { useAuth } from '../contexts/AuthContext';
+import { UserRole } from '../data/enum/UserRole';
+import './JobDetailPage.css';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title } = Typography;
 const { Content } = Layout;
 
-// Mock data - in a real app, this would come from an API
-const mockJobDetails = {
-  id: 1,
-  title: 'Senior React Developer',
-  company: 'Tech Corp',
-  location: 'Remote',
-  salary: '$120k - $150k',
-  tags: ['React', 'TypeScript', 'Redux', 'Node.js'],
-  description: `We are looking for an experienced React developer to join our team. 
-    The ideal candidate will have strong experience with React, TypeScript, and modern frontend development practices.`,
-  requirements: [
-    '5+ years of experience with React',
-    'Strong knowledge of TypeScript',
-    'Experience with state management (Redux, Context API)',
-    'Understanding of responsive design and cross-browser compatibility',
-    'Experience with testing frameworks (Jest, React Testing Library)'
-  ],
-  benefits: [
-    'Competitive salary',
-    'Remote work options',
-    'Health insurance',
-    'Professional development budget',
-    'Flexible working hours'
-  ]
-};
-
 const JobDetailPage: React.FC = () => {
-  const navigate = useNavigate();
+    const navigate = useNavigate();
+    const { id } = useParams<{ id: string }>();
+    const { user } = useAuth();
+    const [job, setJob] = useState<JobDto | null>(null);
+    const [loading, setLoading] = useState(true);
 
-  // In a real app, you would fetch the job details based on the ID
-  const job = mockJobDetails;
+    useEffect(() => {
+        const fetchJobDetail = async () => {
+            try {
+                if (!id) {
+                    throw new Error('Job ID is required');
+                }
+                const jobData = await getJobDetail(id);
+                setJob(jobData);
+            } catch (error) {
+                ErrorMessage({ message: error instanceof Error ? error.message : 'Failed to fetch job details' });
+                navigate('/jobs');
+            } finally {
+                setLoading(false);
+            }
+        };
 
-  return (
-    <Layout className="min-h-screen">
-      <Navbar />
-      <Content className="bg-gray-50 py-8 px-4">
-        <div className="max-w-3xl mx-auto">
-          <Button 
-            type="link"
-            icon={<LeftOutlined />}
-            onClick={() => navigate('/jobs')}
-            className="mb-6 pl-0 hover:text-blue-700"
-          >
-            Back to Jobs
-          </Button>
+        fetchJobDetail();
+    }, [id, navigate]);
 
-          <Card className="shadow-md">
-            <Title level={2} className="mb-6">{job.title}</Title>
-            
-            <div className="flex flex-wrap gap-4 mb-6">
-              <Tag icon={<BankOutlined />} color="blue">
-                {job.company}
-              </Tag>
-              <Tag icon={<EnvironmentOutlined />} color="green">
-                {job.location}
-              </Tag>
-              <Tag icon={<DollarOutlined />} color="gold">
-                {job.salary}
-              </Tag>
-            </div>
+    if (loading) {
+        return (
+            <Layout className="min-h-screen">
+                <Navbar />
+                <Content className="bg-gray-50 py-8 px-4">
+                    <div className="max-w-3xl mx-auto flex justify-center items-center min-h-[400px]">
+                        <span className="loading loading-spinner loading-lg"></span>
+                    </div>
+                </Content>
+            </Layout>
+        );
+    }
 
-            <div className="flex flex-wrap gap-2 mb-6">
-              {job.tags.map((tag) => (
-                <Tag key={tag}>{tag}</Tag>
-              ))}
-            </div>
+    if (!job) {
+        return null;
+    }
 
-            <Divider />
+    return (
+        <Layout className="min-h-screen">
+            <Navbar />
+            <Content className="bg-gray-50 py-8 px-4">
+                <div className="max-w-3xl mx-auto">
+                    <Button
+                        type="link"
+                        icon={<LeftOutlined />}
+                        onClick={() => navigate('/jobs')}
+                        className="mb-6 pl-0 hover:text-blue-700"
+                    >
+                        Back to Jobs
+                    </Button>
 
-            <div className="mb-8">
-              <Title level={4}>Job Description</Title>
-              <Paragraph className="whitespace-pre-line">
-                {job.description}
-              </Paragraph>
-            </div>
+                    <Card className="shadow-md">
+                        <Title level={2} className="mb-6">{job.title}</Title>
 
-            <div className="mb-8">
-              <Title level={4}>Requirements</Title>
-              <List
-                dataSource={job.requirements}
-                renderItem={(item) => (
-                  <List.Item>
-                    <Text>{item}</Text>
-                  </List.Item>
-                )}
-              />
-            </div>
+                        <div className="flex flex-wrap gap-4 mb-6">
+                            <Tag icon={<DollarOutlined />} color="gold">
+                                {job.budgetMin !== null && job.budgetMax !== null
+                                    ? `$${job.budgetMin.toLocaleString()} - $${job.budgetMax.toLocaleString()}`
+                                    : 'Not specified'
+                                }
+                            </Tag>
+                        </div>
 
-            <div className="mb-8">
-              <Title level={4}>Benefits</Title>
-              <List
-                dataSource={job.benefits}
-                renderItem={(item) => (
-                  <List.Item>
-                    <Text>{item}</Text>
-                  </List.Item>
-                )}
-              />
-            </div>
+                        <div className="flex flex-wrap gap-2 mb-6">
+                            {job.skills.map((skill) => (
+                                <Tag key={skill}>{skill}</Tag>
+                            ))}
+                        </div>
 
-            <Button type="primary" size="large" block>
-              Apply Now
-            </Button>
-          </Card>
-        </div>
-      </Content>
-    </Layout>
-  );
+                        <Divider />
+
+                        <div className="mb-8">
+                            <Title level={4}>Job Description</Title>
+                            <div 
+                                dangerouslySetInnerHTML={{ __html: job.description }}
+                                className="prose max-w-none"
+                            />
+                        </div>
+
+                        <div className="mb-8">
+                            <Title level={4}>Requirements</Title>
+                            <div
+                                dangerouslySetInnerHTML={{ __html: job.requirements }}
+                                className="prose max-w-none"
+                            />
+                        </div>
+
+                        <div className="mb-8">
+                            <Title level={4}>Benefits</Title>
+                            <div
+                                dangerouslySetInnerHTML={{ __html: job.benefits }}
+                                className="prose max-w-none"
+                            />
+                        </div>
+
+                        <Button
+                            type="primary"
+                            size="large"
+                            block
+                            onClick={() => {
+                                if (user?.roles?.some(role => role === UserRole.CLIENT)) {
+                                    // Handle approve proposal action for clients
+                                    navigate(`/job/${job.id}/approve-proposal`);
+                                } else {
+                                    navigate(`/job/${job.id}/apply`);
+                                }
+                            }}
+                        >
+                            {user?.roles?.some(role => role === UserRole.CLIENT) ? 'Approve Proposal' : 'Apply Now'}
+                        </Button>
+                    </Card>
+                </div>
+            </Content>
+        </Layout>
+    );
 };
 
 export default JobDetailPage;
